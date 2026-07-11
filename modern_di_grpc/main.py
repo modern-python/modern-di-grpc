@@ -7,6 +7,7 @@ import inspect
 import typing
 
 import grpc
+import grpc.aio
 from grpc import ServicerContext
 from modern_di import Container, Scope, providers
 
@@ -177,4 +178,61 @@ class DIInterceptor(grpc.ServerInterceptor):
             handler,
             lambda behavior: _wrap_unary_sync(behavior, self._container),
             lambda behavior: _wrap_stream_sync(behavior, self._container),
+        )
+
+
+def _wrap_unary_aio(
+    behavior: typing.Callable[..., typing.Any], container: Container
+) -> typing.Callable[..., typing.Any]:
+    async def wrapper(request_or_iterator: typing.Any, context: ServicerContext) -> typing.Any:  # noqa: ANN401
+        child = _build_child(container, context)
+        token = _request_container.set(child)
+        try:
+            return await behavior(request_or_iterator, context)
+        finally:
+            try:
+                await child.close_async()
+            finally:
+                _request_container.reset(token)
+
+    return wrapper
+
+
+def _wrap_stream_aio(
+    behavior: typing.Callable[..., typing.Any], container: Container
+) -> typing.Callable[..., typing.Any]:
+    async def wrapper(request_or_iterator: typing.Any, context: ServicerContext) -> typing.AsyncIterator[typing.Any]:  # noqa: ANN401
+        child = _build_child(container, context)
+        token = _request_container.set(child)
+        try:
+            async for item in behavior(request_or_iterator, context):
+                yield item
+        finally:
+            try:
+                await child.close_async()
+            finally:
+                _request_container.reset(token)
+
+    return wrapper
+
+
+class DIAioInterceptor(grpc.aio.ServerInterceptor):
+    """Server interceptor that opens a ``Scope.REQUEST`` child container per RPC (async server)."""
+
+    def __init__(self, container: Container) -> None:
+        self._container = container
+        _ensure_context_provider(container)
+
+    async def intercept_service(
+        self,
+        continuation: typing.Callable[[grpc.HandlerCallDetails], typing.Awaitable[grpc.RpcMethodHandler]],
+        handler_call_details: grpc.HandlerCallDetails,
+    ) -> grpc.RpcMethodHandler:
+        handler = await continuation(handler_call_details)
+        if handler is None:
+            return handler
+        return _rewrap(
+            handler,
+            lambda behavior: _wrap_unary_aio(behavior, self._container),
+            lambda behavior: _wrap_stream_aio(behavior, self._container),
         )
