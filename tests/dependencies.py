@@ -54,3 +54,22 @@ class Dependencies(Group):
         creator=_make_context_reader,
         bound_type=None,
     )
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
+class BoomResource:
+    """Resolved by wrapper-builder tests whose finalizer always raises, to exercise close-error cleanup."""
+
+
+def _boom_finalizer(_: BoomResource) -> None:
+    msg = "boom"
+    raise RuntimeError(msg)
+
+
+class BoomDependencies(Group):
+    boom_factory = providers.Factory(
+        scope=Scope.REQUEST,
+        creator=BoomResource,
+        bound_type=None,
+        cache=providers.CacheSettings(finalizer=_boom_finalizer),
+    )

@@ -1,4 +1,5 @@
 import typing
+import unittest.mock
 from collections.abc import AsyncIterator
 
 import grpc
@@ -6,8 +7,9 @@ import grpc.aio
 import pytest
 from modern_di import Container
 
-from modern_di_grpc import DIAioInterceptor, FromDI, inject
-from tests.dependencies import Dependencies, RequestResource, app_teardowns, request_teardowns
+from modern_di_grpc import DIAioInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
+from modern_di_grpc.main import _request_container, _wrap_unary_aio
+from tests.dependencies import BoomDependencies, Dependencies, RequestResource, app_teardowns, request_teardowns
 from tests.protos import greeter_pb2, greeter_pb2_grpc
 
 
@@ -141,3 +143,25 @@ async def test_aio_app_finalizer_runs_on_root_close() -> None:
     await server.stop(0)
     await container.close_async()
     assert app_teardowns == ["app-closed"]
+
+
+async def test_wrap_unary_aio_resets_context_var_when_close_raises() -> None:
+    # Async twin of the sync wrapper-builder test: proves the reset still runs when
+    # `await child.close_async()` raises (a REQUEST finalizer error).
+    root = Container(groups=[BoomDependencies], validate=True)
+    root.add_providers(grpc_context_provider)
+
+    async def behavior(_request: object, _context: grpc.aio.ServicerContext) -> str:
+        fetch_di_container().resolve_provider(BoomDependencies.boom_factory)
+        return "ok"
+
+    wrapped = _wrap_unary_aio(behavior, root)
+    context = typing.cast(grpc.aio.ServicerContext, unittest.mock.MagicMock(spec=grpc.ServicerContext))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await wrapped(object(), context)
+
+    with pytest.raises(LookupError):
+        _request_container.get()
+
+    await root.close_async()

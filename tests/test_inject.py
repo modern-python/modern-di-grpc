@@ -7,9 +7,16 @@ import pytest
 from grpc import ServicerContext
 from modern_di import Container, Scope
 
-from modern_di_grpc import FromDI, fetch_di_container, grpc_context_provider, inject
-from modern_di_grpc.main import _build_child, _request_container
-from tests.dependencies import AppResource, Dependencies, RequestResource, app_teardowns, request_teardowns
+from modern_di_grpc import DIAioInterceptor, DIInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
+from modern_di_grpc.main import _build_child, _request_container, _wrap_unary_sync
+from tests.dependencies import (
+    AppResource,
+    BoomDependencies,
+    Dependencies,
+    RequestResource,
+    app_teardowns,
+    request_teardowns,
+)
 
 
 @contextlib.contextmanager
@@ -132,3 +139,37 @@ async def test_close_runs_app_and_request_finalizers() -> None:
     await root.close_async()
     assert request_teardowns[request_before:] == ["request-closed"]
     assert app_teardowns[app_before:] == ["app-closed"]
+
+
+def test_wrap_unary_sync_resets_context_var_when_close_raises() -> None:
+    # White-box: the server-level tests can't observe this because the ContextVar is
+    # thread/task-local to the worker that ran the RPC, so drive the wrapper builder directly.
+    root = Container(groups=[BoomDependencies], validate=True)
+    root.add_providers(grpc_context_provider)
+
+    def behavior(_request: object, _context: ServicerContext) -> str:
+        fetch_di_container().resolve_provider(BoomDependencies.boom_factory)
+        return "ok"
+
+    wrapped = _wrap_unary_sync(behavior, root)
+    context = typing.cast(ServicerContext, unittest.mock.MagicMock(spec=ServicerContext))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        wrapped(object(), context)
+
+    # Reset ran despite child.close_sync() raising: the ContextVar is unset again, not just
+    # left pointing at a stale/closed child container.
+    with pytest.raises(LookupError):
+        _request_container.get()
+
+    root.close_sync()
+
+
+def test_di_interceptor_registers_context_provider_idempotently() -> None:
+    container = Container(groups=[Dependencies], validate=True)
+    DIInterceptor(container)
+    assert container.providers_registry.find_provider(ServicerContext) is not None
+    # Second construction on the same container must hit the idempotent-skip branch, not
+    # try (and fail) to register grpc_context_provider a second time.
+    DIInterceptor(container)
+    DIAioInterceptor(container)
