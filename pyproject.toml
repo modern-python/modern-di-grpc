@@ -1,0 +1,73 @@
+[project]
+name = "modern-di-grpc"
+description = "modern-di integration for gRPC"
+authors = [{ name = "Artur Shiriev", email = "me@shiriev.ru" }]
+requires-python = ">=3.10,<4"
+license = "MIT"
+readme = "README.md"
+keywords = ["dependency-injection", "di", "ioc-container", "modern-di", "grpc", "grpcio", "python"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = ["grpcio>=1.48,<2", "modern-di>=2.25,<3"]
+version = "0"
+
+[project.urls]
+Homepage = "https://modern-di.modern-python.org"
+Documentation = "https://modern-di.modern-python.org"
+Repository = "https://github.com/modern-python/modern-di-grpc"
+Issues = "https://github.com/modern-python/modern-di-grpc/issues"
+Changelog = "https://github.com/modern-python/modern-di-grpc/releases"
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov", "pytest-asyncio", "grpcio-tools", "protobuf"]
+lint = ["ty", "ruff", "eof-fixer", "typing-extensions"]
+
+[build-system]
+requires = ["uv_build>=0.11,<1.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "modern_di_grpc"
+module-root = ""
+
+[tool.ruff]
+fix = false
+unsafe-fixes = true
+line-length = 120
+target-version = "py310"
+extend-exclude = ["tests/protos"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D1", "S101", "TCH", "FBT", "D203", "D213", "COM812", "ISC001", "G004"]
+isort.lines-after-imports = 2
+isort.no-lines-before = ["standard-library", "local-folder"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/*.py" = ["PLR2004", "SLF001"]
+
+[tool.ty.src]
+exclude = ["tests/protos"]
+
+[tool.pytest.ini_options]
+addopts = ""
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+omit = ["tests/protos/*"]
+
+[tool.coverage.report]
+exclude_also = ["if typing.TYPE_CHECKING:"]
