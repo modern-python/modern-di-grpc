@@ -6,6 +6,7 @@ import functools
 import inspect
 import typing
 
+import grpc
 from grpc import ServicerContext
 from modern_di import Container, Scope, providers
 
@@ -95,3 +96,74 @@ def inject(func: typing.Callable[..., typing.Any]) -> typing.Callable[..., typin
         return func(*args, **kwargs, **_resolve(di_params))
 
     return sync_wrapper
+
+
+def _rewrap(
+    handler: grpc.RpcMethodHandler,
+    unary_builder: typing.Callable[[typing.Callable[..., typing.Any]], typing.Callable[..., typing.Any]],
+    stream_builder: typing.Callable[[typing.Callable[..., typing.Any]], typing.Callable[..., typing.Any]],
+) -> grpc.RpcMethodHandler:
+    # grpc.RpcMethodHandler is an abc.ABC documenting these attributes only in its docstring (no annotated
+    # fields), so ty cannot resolve them on the concrete instances the runtime actually hands back.
+    deserializer = handler.request_deserializer  # ty: ignore[unresolved-attribute]
+    serializer = handler.response_serializer  # ty: ignore[unresolved-attribute]
+    if unary_unary := handler.unary_unary:  # ty: ignore[unresolved-attribute]
+        return grpc.unary_unary_rpc_method_handler(unary_builder(unary_unary), deserializer, serializer)
+    if unary_stream := handler.unary_stream:  # ty: ignore[unresolved-attribute]
+        return grpc.unary_stream_rpc_method_handler(stream_builder(unary_stream), deserializer, serializer)
+    if stream_unary := handler.stream_unary:  # ty: ignore[unresolved-attribute]
+        return grpc.stream_unary_rpc_method_handler(unary_builder(stream_unary), deserializer, serializer)
+    if stream_stream := handler.stream_stream:  # ty: ignore[unresolved-attribute]
+        return grpc.stream_stream_rpc_method_handler(stream_builder(stream_stream), deserializer, serializer)
+    return handler  # pragma: no cover  (every RpcMethodHandler sets exactly one behavior)
+
+
+def _wrap_unary_sync(
+    behavior: typing.Callable[..., typing.Any], container: Container
+) -> typing.Callable[..., typing.Any]:
+    def wrapper(request_or_iterator: typing.Any, context: ServicerContext) -> typing.Any:  # noqa: ANN401
+        child = _build_child(container, context)
+        token = _request_container.set(child)
+        try:
+            return behavior(request_or_iterator, context)
+        finally:
+            child.close_sync()
+            _request_container.reset(token)
+
+    return wrapper
+
+
+def _wrap_stream_sync(
+    behavior: typing.Callable[..., typing.Any], container: Container
+) -> typing.Callable[..., typing.Any]:
+    def wrapper(request_or_iterator: typing.Any, context: ServicerContext) -> typing.Iterator[typing.Any]:  # noqa: ANN401
+        child = _build_child(container, context)
+        token = _request_container.set(child)
+        try:
+            yield from behavior(request_or_iterator, context)
+        finally:
+            child.close_sync()
+            _request_container.reset(token)
+
+    return wrapper
+
+
+class DIInterceptor(grpc.ServerInterceptor):
+    """Server interceptor that opens a ``Scope.REQUEST`` child container per RPC (sync server)."""
+
+    def __init__(self, container: Container) -> None:
+        self._container = container
+
+    def intercept_service(
+        self,
+        continuation: typing.Callable[[grpc.HandlerCallDetails], grpc.RpcMethodHandler],
+        handler_call_details: grpc.HandlerCallDetails,
+    ) -> grpc.RpcMethodHandler:
+        handler = continuation(handler_call_details)
+        if handler is None:  # pragma: no cover  (unknown method; gRPC handles before DI)
+            return handler
+        return _rewrap(
+            handler,
+            lambda behavior: _wrap_unary_sync(behavior, self._container),
+            lambda behavior: _wrap_stream_sync(behavior, self._container),
+        )
