@@ -5,7 +5,7 @@ import grpc
 import pytest
 from modern_di import Container
 
-from modern_di_grpc import DIInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
+from modern_di_grpc import DIInterceptor, FromDI, fetch_di_container, inject
 from tests.conftest import run_sync_server
 from tests.dependencies import (
     AppResource,
@@ -75,7 +75,6 @@ def sync_stub() -> Iterator[greeter_pb2_grpc.GreeterStub]:
     app_teardowns.clear()
     request_teardowns.clear()
     container = Container(groups=[Dependencies], validate=True)
-    container.add_providers(grpc_context_provider)
     server, port = run_sync_server(Servicer(), DIInterceptor(container))
     with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
         yield greeter_pb2_grpc.GreeterStub(channel)
@@ -112,7 +111,6 @@ def test_stream_stream(sync_stub: greeter_pb2_grpc.GreeterStub) -> None:
 async def test_app_finalizer_runs_on_root_close() -> None:
     app_teardowns.clear()
     container = Container(groups=[Dependencies], validate=True)
-    container.add_providers(grpc_context_provider)
     server, port = run_sync_server(Servicer(), DIInterceptor(container))
     with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
         greeter_pb2_grpc.GreeterStub(channel).SayHello(HelloRequest(name="x"))  # resolves app_factory

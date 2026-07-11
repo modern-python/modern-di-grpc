@@ -27,6 +27,12 @@ def fetch_di_container() -> Container:
     return _request_container.get()
 
 
+def _ensure_context_provider(container: Container) -> None:
+    # Register grpc_context_provider once (idempotent) so ServicerContext injects out of the box.
+    if container.providers_registry.find_provider(ServicerContext) is None:
+        container.add_providers(grpc_context_provider)
+
+
 T = typing.TypeVar("T")
 T_co = typing.TypeVar("T_co", covariant=True)
 
@@ -153,6 +159,7 @@ class DIInterceptor(grpc.ServerInterceptor):
 
     def __init__(self, container: Container) -> None:
         self._container = container
+        _ensure_context_provider(container)
 
     def intercept_service(
         self,
