@@ -133,8 +133,10 @@ def _wrap_unary_sync(
         try:
             return behavior(request_or_iterator, context)
         finally:
-            child.close_sync()
-            _request_container.reset(token)
+            try:
+                child.close_sync()
+            finally:
+                _request_container.reset(token)
 
     return wrapper
 
@@ -148,8 +150,10 @@ def _wrap_stream_sync(
         try:
             yield from behavior(request_or_iterator, context)
         finally:
-            child.close_sync()
-            _request_container.reset(token)
+            try:
+                child.close_sync()
+            finally:
+                _request_container.reset(token)
 
     return wrapper
 
@@ -167,7 +171,7 @@ class DIInterceptor(grpc.ServerInterceptor):
         handler_call_details: grpc.HandlerCallDetails,
     ) -> grpc.RpcMethodHandler:
         handler = continuation(handler_call_details)
-        if handler is None:  # pragma: no cover  (unknown method; gRPC handles before DI)
+        if handler is None:
             return handler
         return _rewrap(
             handler,

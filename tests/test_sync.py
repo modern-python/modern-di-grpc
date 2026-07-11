@@ -71,14 +71,19 @@ class Servicer(greeter_pb2_grpc.GreeterServicer):
 
 
 @pytest.fixture
-def sync_stub() -> Iterator[greeter_pb2_grpc.GreeterStub]:
+def sync_channel() -> Iterator[grpc.Channel]:
     app_teardowns.clear()
     request_teardowns.clear()
     container = Container(groups=[Dependencies], validate=True)
     server, port = run_sync_server(Servicer(), DIInterceptor(container))
     with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
-        yield greeter_pb2_grpc.GreeterStub(channel)
+        yield channel
     server.stop(0)
+
+
+@pytest.fixture
+def sync_stub(sync_channel: grpc.Channel) -> greeter_pb2_grpc.GreeterStub:
+    return greeter_pb2_grpc.GreeterStub(sync_channel)
 
 
 def test_unary_unary(sync_stub: greeter_pb2_grpc.GreeterStub) -> None:
@@ -106,6 +111,16 @@ def test_stream_stream(sync_stub: greeter_pb2_grpc.GreeterStub) -> None:
     msgs = [m.message for m in sync_stub.SayHelloBidi(it)]
     assert msgs == ["e:True", "f:True"]
     assert request_teardowns == ["request-closed"]
+
+
+def test_unknown_method_returns_unimplemented(sync_channel: grpc.Channel) -> None:
+    # No servicer is registered for this method, so continuation(...) returns None inside
+    # DIInterceptor.intercept_service; gRPC then answers UNIMPLEMENTED on its own.
+    with pytest.raises(grpc.RpcError) as excinfo:
+        sync_channel.unary_unary("/greeter.Greeter/DoesNotExist")(b"")
+    # grpc.RpcError is an empty marker class; the actual raised instance is also a grpc.Call
+    # (code(), details(), ...), which ty can't see from the RpcError annotation alone.
+    assert excinfo.value.code() == grpc.StatusCode.UNIMPLEMENTED  # ty: ignore[unresolved-attribute]
 
 
 async def test_app_finalizer_runs_on_root_close() -> None:
