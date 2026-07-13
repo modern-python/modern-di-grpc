@@ -1,3 +1,4 @@
+import asyncio
 import typing
 import unittest.mock
 from collections.abc import AsyncIterator
@@ -141,6 +142,10 @@ async def test_aio_app_finalizer_runs_on_root_close() -> None:
         stub = greeter_pb2_grpc.GreeterStub(channel)
         await stub.SayHello(HelloRequest(name="x"))
     await server.stop(0)
+    # coveragepy #2124: on Python 3.11 the tracer can lose the lines right after awaiting
+    # a coroutine that cancels tasks internally (server.stop does). This checkpoint moves
+    # the blind spot onto a throwaway line instead of the assertions we care about.
+    await asyncio.sleep(0)
     await container.close_async()
     assert app_teardowns == ["app-closed"]
 
