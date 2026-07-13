@@ -42,9 +42,17 @@ message.
 
 **Every RPC call opens one `Scope.REQUEST` child container** — one RPC is one
 unit of work, uniform across all four RPC types (unary-unary, unary-stream,
-stream-unary, stream-stream). `_build_child(container, context)` builds it via
-`container.build_child_container(scope=Scope.REQUEST)` and seeds
-`ServicerContext` as context (`child.set_context(ServicerContext, context)`).
+stream-unary, stream-stream). `_build_child(container, context)` derives the
+child's scope and context via `modern_di.integrations.bind(grpc_context_provider,
+context)` — `bind(provider, connection)` returns
+`ConnectionMatch(scope=provider.scope, context={provider.context_type:
+connection})`, so this always produces `scope=Scope.REQUEST,
+context={ServicerContext: context}`, the same values the code used to
+hand-write via a separate post-hoc `child.set_context(...)` call — then
+builds the child via `container.build_child_container(scope=match.scope,
+context=match.context)` in one step. gRPC has no second connection provider
+to distinguish, so there is nothing for `classify_connection` (which
+dispatches across several providers) to dispatch across here.
 
 Each of the four wrapper builders (`_wrap_unary_sync`, `_wrap_stream_sync`,
 `_wrap_unary_aio`, `_wrap_stream_aio`) follows the same shape:
@@ -108,14 +116,15 @@ servicer-method argument.
 
 ## `FromDI` marker + `inject` decorator
 
-`FromDI(dependency)` returns an inert marker (`_FromDI`, a frozen/slotted
-dataclass wrapping a provider or a bare type) — it does nothing on its own.
-Parameters opt into injection by annotating them
-`typing.Annotated[SomeType, FromDI(dependency)]`.
+`FromDI` is `modern_di.integrations.from_di` — its marker factory. Calling
+`FromDI(dependency)` returns an inert `Marker(dependency)` wrapping a
+provider or a bare type; it does nothing on its own. Parameters opt into
+injection by annotating them `typing.Annotated[SomeType, FromDI(dependency)]`.
 
-`_parse_inject_params` scans `typing.get_type_hints(func, include_extras=True)`
-for `Annotated` parameters carrying a `_FromDI` marker. If none are found,
-`inject` returns `func` unchanged — no wrapper is built at all.
+`integrations.parse_markers(func)` scans `typing.get_type_hints(func,
+include_extras=True)` for `Annotated` parameters carrying a `Marker`. If
+none are found, `inject` returns `func` unchanged — no wrapper is built at
+all.
 
 Otherwise `inject` builds one of three wrapper shapes, matched to `func` by
 `inspect.isasyncgenfunction` / `inspect.iscoroutinefunction`:
@@ -126,10 +135,12 @@ Otherwise `inject` builds one of three wrapper shapes, matched to `func` by
   yield item`, for streaming servicer methods on the aio server.
 
 All three resolve DI params the same way: `_resolve(di_params)` reads
-`_request_container.get()` and calls `container.resolve_dependency(marker.dependency)`
-per marker — dispatching to `resolve_provider` for a provider instance or
-`resolve` (by type) for a bare type — then the wrapper appends the resolved
-values as **keyword** arguments alongside gRPC's own `*args, **kwargs`.
+`_request_container.get()` and calls `integrations.resolve_markers(container,
+di_params)`, which calls each `Marker.resolve(container)` — itself
+`container.resolve_dependency(marker.dependency)`, dispatching to
+`resolve_provider` for a provider instance or `resolve` (by type) for a bare
+type — then the wrapper appends the resolved values as **keyword** arguments
+alongside gRPC's own `*args, **kwargs`.
 
 This is simpler than the Celery/arq decorator path: gRPC always calls a
 servicer method as `(request, context)` **positionally**, a calling
