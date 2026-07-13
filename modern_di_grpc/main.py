@@ -1,7 +1,6 @@
 """modern-di integration for gRPC (grpcio)."""
 
 import contextvars
-import dataclasses
 import functools
 import inspect
 import typing
@@ -33,37 +32,12 @@ def _ensure_context_provider(container: Container) -> None:
         container.add_providers(grpc_context_provider)
 
 
-T = typing.TypeVar("T")
-T_co = typing.TypeVar("T_co", covariant=True)
+FromDI = integrations.from_di
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
-class _FromDI(typing.Generic[T_co]):
-    dependency: "providers.AbstractProvider[T_co] | type[T_co]"
-
-
-def FromDI(dependency: "providers.AbstractProvider[T] | type[T]") -> T:  # noqa: N802
-    """Mark a servicer-method parameter for DI injection via ``Annotated[T, FromDI]``."""
-    return typing.cast(T, _FromDI(dependency))
-
-
-def _parse_inject_params(func: typing.Callable[..., typing.Any]) -> dict[str, _FromDI[typing.Any]]:
-    hints = typing.get_type_hints(func, include_extras=True)
-    di_params: dict[str, _FromDI[typing.Any]] = {}
-    for name, hint in hints.items():
-        if name == "return":
-            continue
-        if typing.get_origin(hint) is typing.Annotated:
-            for meta in typing.get_args(hint)[1:]:
-                if isinstance(meta, _FromDI):
-                    di_params[name] = meta
-                    break
-    return di_params
-
-
-def _resolve(di_params: dict[str, _FromDI[typing.Any]]) -> dict[str, typing.Any]:
+def _resolve(di_params: dict[str, integrations.Marker[typing.Any]]) -> dict[str, typing.Any]:
     container = _request_container.get()
-    return {name: container.resolve_dependency(marker.dependency) for name, marker in di_params.items()}
+    return integrations.resolve_markers(container, di_params)
 
 
 def inject(func: typing.Callable[..., typing.Any]) -> typing.Callable[..., typing.Any]:
@@ -73,7 +47,7 @@ def inject(func: typing.Callable[..., typing.Any]) -> typing.Callable[..., typin
     behavior as ``(request, context)`` positionally, so resolved params are appended as keywords
     (no bind-by-name needed). A method with no ``FromDI`` parameter is returned unchanged.
     """
-    di_params = _parse_inject_params(func)
+    di_params = integrations.parse_markers(func)
     if not di_params:
         return func
 
