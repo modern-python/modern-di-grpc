@@ -141,8 +141,11 @@ async def test_aio_app_finalizer_runs_on_root_close() -> None:
         stub = greeter_pb2_grpc.GreeterStub(channel)
         await stub.SayHello(HelloRequest(name="x"))
     await server.stop(0)
-    await container.close_async()
-    assert app_teardowns == ["app-closed"]
+    # coveragepy #2124: on Python 3.11 the tracer can lose 1-2 lines right after awaiting
+    # a coroutine that cancels tasks internally, which server.stop does to its own
+    # background tasks. Excluded (not skipped) so the flake can't fail --cov-fail-under.
+    await container.close_async()  # pragma: no cover
+    assert app_teardowns == ["app-closed"]  # pragma: no cover
 
 
 async def test_wrap_unary_aio_resets_context_var_when_close_raises() -> None:
