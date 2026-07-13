@@ -1,15 +1,16 @@
 ---
 status: accepted
-summary: Route around coveragepy#2124 with a test-side asyncio checkpoint rather than retrying CI or loosening the coverage gate.
+summary: Route around coveragepy#2124 with pragma:no cover on the affected lines rather than retrying CI, loosening the coverage gate, or shifting the blind spot with a checkpoint.
 supersedes: null
 superseded_by: null
 ---
 
 # Fix the aio coverage flake in the test, not in CI or the gate
 
-**Decision:** Insert an `await asyncio.sleep(0)` checkpoint in the one test
-that runs code after `server.stop(0)`, rather than adding CI-level retries or
-relaxing `--cov-fail-under=100` for Python 3.11.
+**Decision:** Mark the two lines after `server.stop(0)` in
+`test_aio_app_finalizer_runs_on_root_close` with `# pragma: no cover`, rather
+than adding CI-level retries, relaxing `--cov-fail-under=100` for Python
+3.11, or shifting the blind spot with a scheduling checkpoint.
 
 ## Context
 
@@ -31,13 +32,24 @@ Options considered:
 1. Retry the pytest CI step once on failure.
 2. Lower `--cov-fail-under` for the 3.11 job specifically.
 3. Pin a coverage.py version once the upstream bug is fixed.
-4. Add a scheduling checkpoint in the affected test so the blind spot lands
-   on a throwaway line instead of the assertions under test.
+4. Add a scheduling checkpoint (`await asyncio.sleep(0)`) after
+   `server.stop(0)` so the blind spot lands on a throwaway line instead of
+   the assertions under test.
+5. Mark the affected lines `# pragma: no cover` so they're excluded from the
+   statement count regardless of whether the tracer catches them.
 
 ## Decision & rationale
 
-Chose option 4. It fixes the actual mechanism (a specific await placement)
-rather than papering over symptoms:
+Tried option 4 first — reproduced the flake again on CI within 2 rerun
+attempts. The original failure showed a 2-line miss, not 1, so the blind
+spot's width isn't fixed; moving it just relocates which line fails, and
+`--cov-fail-under=100` fails on any missed line. Checkpoints don't work here.
+
+Chose option 5. `# pragma: no cover` is honored by coverage.py's static
+source parser, not the runtime tracer, so it's structurally immune to the
+race regardless of how many lines it swallows on a given run — confirmed
+locally by the tracked statement count for `tests/test_aio.py` dropping from
+107 to 105.
 - Retrying (1) would mask any *other* flaky test that happens to fail for a
   real reason, and keeps the flake latent forever.
 - Lowering the gate (2) permanently weakens the 100%-coverage guarantee for
