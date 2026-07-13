@@ -9,7 +9,7 @@ import typing
 import grpc
 import grpc.aio
 from grpc import ServicerContext
-from modern_di import Container, Scope, providers
+from modern_di import Container, Scope, integrations, providers
 
 
 grpc_context_provider = providers.ContextProvider(ServicerContext, scope=Scope.REQUEST)
@@ -18,9 +18,8 @@ _request_container: contextvars.ContextVar[Container] = contextvars.ContextVar("
 
 
 def _build_child(container: Container, context: ServicerContext) -> Container:
-    child = container.build_child_container(scope=Scope.REQUEST)
-    child.set_context(ServicerContext, context)
-    return child
+    match = integrations.bind(grpc_context_provider, context)
+    return container.build_child_container(scope=match.scope, context=match.context)
 
 
 def fetch_di_container() -> Container:
