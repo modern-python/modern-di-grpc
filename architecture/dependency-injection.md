@@ -50,9 +50,13 @@ connection})`, so this always produces `scope=Scope.REQUEST,
 context={ServicerContext: context}`, the same values the code used to
 hand-write via a separate post-hoc `child.set_context(...)` call — then
 builds the child via `container.build_child_container(scope=match.scope,
-context=match.context)` in one step. gRPC has no second connection provider
-to distinguish, so there is nothing for `classify_connection` (which
-dispatches across several providers) to dispatch across here.
+context=match.context)` in one step, and opens it immediately with
+`child.open()` — required under modern-di 3.x's mandatory-open lifecycle,
+since `build_child_container`/`open` happen here while the *close* happens
+later in the wrapper's own `finally` (see below), with no enclosing `with`
+block spanning both. gRPC has no second connection provider to distinguish,
+so there is nothing for `classify_connection` (which dispatches across
+several providers) to dispatch across here.
 
 Each of the four wrapper builders (`_wrap_unary_sync`, `_wrap_stream_sync`,
 `_wrap_unary_aio`, `_wrap_stream_aio`) follows the same shape:
@@ -157,11 +161,19 @@ by name and never introspects or unwraps its signature.
 
 gRPC has no server start/stop hook a container could attach to (unlike
 Celery's `worker_process_init`/`worker_process_shutdown` signals or an ASGI
-app's lifespan). A `modern_di.Container` is already open on construction, so
-the user constructs it, passes it into `DIInterceptor`/`DIAioInterceptor`, and
-is responsible for closing it themselves after `server.stop(...)` —
-`close_sync()` for the sync server, `close_async()` for the aio server. This
-matches `modern-di-flask` ("no app-shutdown hook").
+app's lifespan). Under modern-di 3.x's mandatory-open lifecycle, a
+freshly-constructed container starts unopened, so the caller must open it
+themselves — `.open()` or `with`/`async with` — before passing it to
+`DIInterceptor`/`DIAioInterceptor` and serving traffic; passing an unopened
+root means the very first RPC's `_build_child` call raises
+`ContainerClosedError` when it tries to build the per-request child. The
+`DIInterceptor`/`DIAioInterceptor` constructors do not open the root
+themselves, the same way they have never closed it: opening, like closing,
+is the caller's own responsibility end-to-end. The root container then lives
+for the entire process lifetime of the server; closing it after
+`server.stop(...)` remains the caller's job too — `close_sync()` for the
+sync server, `close_async()` for the aio server. This matches
+`modern-di-flask` ("no app-shutdown hook").
 
 ## Sync and async, both first-class
 
