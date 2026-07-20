@@ -22,7 +22,9 @@ from tests.dependencies import (
 @contextlib.contextmanager
 def _rpc_child() -> typing.Iterator[Container]:
     root = Container(groups=[Dependencies], validate=True)
+    root.open()  # caller-owned root; never closed here (gRPC has no root-lifecycle hook)
     child = root.build_child_container(scope=Scope.REQUEST)
+    child.open()
     token = _request_container.set(child)
     try:
         yield child
@@ -113,6 +115,7 @@ async def test_inject_async_generator_resolves() -> None:
 def test_build_child_seeds_servicer_context() -> None:
     root = Container(groups=[Dependencies], validate=True)
     root.add_providers(grpc_context_provider)
+    root.open()
     context = typing.cast(ServicerContext, unittest.mock.MagicMock(spec=ServicerContext))
     child = _build_child(root, context)
     try:
@@ -132,8 +135,10 @@ def test_context_reader_resolves_without_live_context() -> None:
 async def test_close_runs_app_and_request_finalizers() -> None:
     app_before, request_before = len(app_teardowns), len(request_teardowns)
     root = Container(groups=[Dependencies], validate=True)
+    root.open()
     root.resolve(AppResource)
     child = root.build_child_container(scope=Scope.REQUEST)
+    child.open()
     child.resolve_provider(Dependencies.request_factory)
     child.close_sync()
     await root.close_async()
@@ -146,6 +151,7 @@ def test_wrap_unary_sync_resets_context_var_when_close_raises() -> None:
     # thread/task-local to the worker that ran the RPC, so drive the wrapper builder directly.
     root = Container(groups=[BoomDependencies], validate=True)
     root.add_providers(grpc_context_provider)
+    root.open()
 
     def behavior(_request: object, _context: ServicerContext) -> str:
         fetch_di_container().resolve_provider(BoomDependencies.boom_factory)

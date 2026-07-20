@@ -72,6 +72,7 @@ class GreeterService(greeter_pb2_grpc.GreeterServicer):
 
 
 container = Container(groups=[AppGroup], validate=True)
+container.open()  # or: with container: ... — required under modern-di 3.x's mandatory-open lifecycle
 server = grpc.server(
     futures.ThreadPoolExecutor(max_workers=10),
     interceptors=[DIInterceptor(container)],
@@ -80,9 +81,10 @@ greeter_pb2_grpc.add_GreeterServicer_to_server(GreeterService(), server)
 server.add_insecure_port("[::]:50051")
 server.start()
 server.wait_for_termination()
+container.close_sync()
 ```
 
-For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. gRPC has no server startup/shutdown hook, so the root container's lifecycle is yours to own — create it open, pass it to the interceptor, and `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops.
+For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. gRPC has no server startup/shutdown hook, so the root container's lifecycle is yours to own end-to-end: call `.open()` (or use `with`/`async with`) *before* constructing the interceptor and serving traffic — required under modern-di 3.x's mandatory-open lifecycle, since `DIInterceptor`/`DIAioInterceptor` never open the root themselves — and call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops.
 
 ## API
 
