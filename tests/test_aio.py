@@ -62,6 +62,7 @@ class AioServicer(greeter_pb2_grpc.GreeterServicer):
 
 async def _make_server() -> tuple[grpc.aio.Server, int, Container]:
     container = Container(groups=[Dependencies], validate=True)
+    container.open()  # caller-owned root lifecycle: gRPC gives the adapter no root-lifecycle hook
     server = grpc.aio.server(interceptors=[DIAioInterceptor(container)])
     greeter_pb2_grpc.add_GreeterServicer_to_server(AioServicer(), server)
     port = server.add_insecure_port("127.0.0.1:0")
@@ -153,6 +154,7 @@ async def test_wrap_unary_aio_resets_context_var_when_close_raises() -> None:
     # `await child.close_async()` raises (a REQUEST finalizer error).
     root = Container(groups=[BoomDependencies], validate=True)
     root.add_providers(grpc_context_provider)
+    root.open()
 
     async def behavior(_request: object, _context: grpc.aio.ServicerContext) -> str:
         fetch_di_container().resolve_provider(BoomDependencies.boom_factory)

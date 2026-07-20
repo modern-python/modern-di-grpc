@@ -18,7 +18,9 @@ _request_container: contextvars.ContextVar[Container] = contextvars.ContextVar("
 
 def _build_child(container: Container, context: ServicerContext) -> Container:
     match = integrations.bind(grpc_context_provider, context)
-    return container.build_child_container(scope=match.scope, context=match.context)
+    child = container.build_child_container(scope=match.scope, context=match.context)
+    child.open()
+    return child
 
 
 def fetch_di_container() -> Container:
