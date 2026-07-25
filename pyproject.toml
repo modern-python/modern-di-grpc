@@ -51,7 +51,18 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D1", "S101", "TCH", "FBT", "D203", "D213", "COM812", "ISC001", "G004"]
+ignore = [
+    "D1",
+    "S101",
+    "TCH",
+    "FBT",
+    "D203",
+    "D213",
+    "COM812",
+    "ISC001",
+    "G004",
+    "CPY001", # no per-file copyright header
+]
 isort.lines-after-imports = 2
 isort.no-lines-before = ["standard-library", "local-folder"]
 

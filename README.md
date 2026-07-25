@@ -21,6 +21,8 @@
 
 Full guide: [gRPC integration docs](https://modern-di.modern-python.org/integrations/grpc/)
 
+Usage example: [examples/](./examples)
+
 ## Installation
 
 ```bash
@@ -39,7 +41,7 @@ import grpc
 from modern_di import Container, Group, Scope, providers
 from modern_di_grpc import DIInterceptor, FromDI, inject
 
-from myapp import greeter_pb2, greeter_pb2_grpc   # your generated stubs
+from myapp import greeter_pb2, greeter_pb2_grpc  # your generated stubs
 
 
 class Settings:
@@ -48,7 +50,7 @@ class Settings:
 
 
 class Greeter:
-    def __init__(self, settings: Settings) -> None:   # auto-injected by type
+    def __init__(self, settings: Settings) -> None:  # auto-injected by type
         self._settings = settings
 
     def greet(self, name: str) -> str:
@@ -66,7 +68,7 @@ class GreeterService(greeter_pb2_grpc.GreeterServicer):
         self,
         request: greeter_pb2.HelloRequest,
         context: grpc.ServicerContext,
-        greeter: typing.Annotated[Greeter, FromDI(Greeter)],   # resolve by type
+        greeter: typing.Annotated[Greeter, FromDI(Greeter)],  # resolve by type
     ) -> greeter_pb2.HelloReply:
         return greeter_pb2.HelloReply(message=greeter.greet(request.name))
 
