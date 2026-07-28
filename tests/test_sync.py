@@ -74,7 +74,7 @@ class Servicer(greeter_pb2_grpc.GreeterServicer):
 def sync_channel() -> Iterator[grpc.Channel]:
     app_teardowns.clear()
     request_teardowns.clear()
-    container = Container(groups=[Dependencies], validate=True)
+    container = Container(groups=[Dependencies])
     container.open()  # caller-owned root; never closed here (AppResource's finalizer is async)
     server, port = run_sync_server(Servicer(), DIInterceptor(container))
     with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
@@ -126,7 +126,7 @@ def test_unknown_method_returns_unimplemented(sync_channel: grpc.Channel) -> Non
 
 async def test_app_finalizer_runs_on_root_close() -> None:
     app_teardowns.clear()
-    container = Container(groups=[Dependencies], validate=True)
+    container = Container(groups=[Dependencies])
     container.open()  # caller-owned root lifecycle; closed via close_async() below
     server, port = run_sync_server(Servicer(), DIInterceptor(container))
     with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:

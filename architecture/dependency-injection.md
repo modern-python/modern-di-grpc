@@ -51,7 +51,8 @@ context={ServicerContext: context}`, the same values the code used to
 hand-write via a separate post-hoc `child.set_context(...)` call — then
 builds the child via `container.build_child_container(scope=match.scope,
 context=match.context)` in one step, and opens it immediately with
-`child.open()` — required under modern-di 3.x's mandatory-open lifecycle,
+`child.open()`. As of modern-di 3.1 that call is defensive rather than
+required — a freshly built child is already open — but it is kept explicit
 since `build_child_container`/`open` happen here while the *close* happens
 later in the wrapper's own `finally` (see below), with no enclosing `with`
 block spanning both. gRPC has no second connection provider to distinguish,
@@ -161,9 +162,8 @@ by name and never introspects or unwraps its signature.
 
 gRPC has no server start/stop hook a container could attach to (unlike
 Celery's `worker_process_init`/`worker_process_shutdown` signals or an ASGI
-app's lifespan). Under modern-di 3.x's mandatory-open lifecycle, a
-freshly-constructed container starts unopened, so the caller must open it
-themselves — `.open()` or `with`/`async with` — before passing it to
+app's lifespan). Under modern-di 3.1 a freshly-constructed container is
+already open, so the caller no longer has to open it before passing it to
 `DIInterceptor`/`DIAioInterceptor` and serving traffic; passing an unopened
 root means the very first RPC's `_build_child` call raises
 `ContainerClosedError` when it tries to build the per-request child. The

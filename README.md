@@ -73,8 +73,8 @@ class GreeterService(greeter_pb2_grpc.GreeterServicer):
         return greeter_pb2.HelloReply(message=greeter.greet(request.name))
 
 
-container = Container(groups=[AppGroup], validate=True)
-container.open()  # or: with container: ... — required under modern-di 3.x's mandatory-open lifecycle
+container = Container(groups=[AppGroup])
+container.validate()  # optional fail-fast; modern-di 3.1 validates nowhere implicitly
 server = grpc.server(
     futures.ThreadPoolExecutor(max_workers=10),
     interceptors=[DIInterceptor(container)],
@@ -86,7 +86,7 @@ server.wait_for_termination()
 container.close_sync()
 ```
 
-For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. gRPC has no server startup/shutdown hook, so the root container's lifecycle is yours to own end-to-end: call `.open()` (or use `with`/`async with`) *before* constructing the interceptor and serving traffic — required under modern-di 3.x's mandatory-open lifecycle, since `DIInterceptor`/`DIAioInterceptor` never open the root themselves — and call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops.
+For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. gRPC has no server startup/shutdown hook, so the root container's shutdown is yours to own. As of modern-di 3.1 a container is **open from construction**, so no `.open()` call is required before constructing the interceptor (`DIInterceptor`/`DIAioInterceptor` never open the root themselves, and no longer need to). Validation is explicit in 3.1: call `.validate()` if you want a broken graph to fail at start-up rather than at the first RPC that touches it. Call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops — that half is still yours, since gRPC gives the adapter no shutdown hook.
 
 ## API
 
