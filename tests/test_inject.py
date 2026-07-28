@@ -21,7 +21,7 @@ from tests.dependencies import (
 
 @contextlib.contextmanager
 def _rpc_child() -> typing.Iterator[Container]:
-    root = Container(groups=[Dependencies], validate=True)
+    root = Container(groups=[Dependencies])
     root.open()  # caller-owned root; never closed here (gRPC has no root-lifecycle hook)
     child = root.build_child_container(scope=Scope.REQUEST)
     child.open()
@@ -113,7 +113,7 @@ async def test_inject_async_generator_resolves() -> None:
 
 
 def test_build_child_seeds_servicer_context() -> None:
-    root = Container(groups=[Dependencies], validate=True)
+    root = Container(groups=[Dependencies])
     root.add_providers(grpc_context_provider)
     root.open()
     context = typing.cast(ServicerContext, unittest.mock.MagicMock(spec=ServicerContext))
@@ -134,7 +134,7 @@ def test_context_reader_resolves_without_live_context() -> None:
 
 async def test_close_runs_app_and_request_finalizers() -> None:
     app_before, request_before = len(app_teardowns), len(request_teardowns)
-    root = Container(groups=[Dependencies], validate=True)
+    root = Container(groups=[Dependencies])
     root.open()
     root.resolve(AppResource)
     child = root.build_child_container(scope=Scope.REQUEST)
@@ -149,7 +149,7 @@ async def test_close_runs_app_and_request_finalizers() -> None:
 def test_wrap_unary_sync_resets_context_var_when_close_raises() -> None:
     # White-box: the server-level tests can't observe this because the ContextVar is
     # thread/task-local to the worker that ran the RPC, so drive the wrapper builder directly.
-    root = Container(groups=[BoomDependencies], validate=True)
+    root = Container(groups=[BoomDependencies])
     root.add_providers(grpc_context_provider)
     root.open()
 
@@ -172,7 +172,7 @@ def test_wrap_unary_sync_resets_context_var_when_close_raises() -> None:
 
 
 def test_di_interceptor_registers_context_provider_idempotently() -> None:
-    container = Container(groups=[Dependencies], validate=True)
+    container = Container(groups=[Dependencies])
     DIInterceptor(container)
     assert container.providers_registry.find_provider(ServicerContext) is not None
     # Second construction on the same container must hit the idempotent-skip branch, not

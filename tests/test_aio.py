@@ -61,7 +61,7 @@ class AioServicer(greeter_pb2_grpc.GreeterServicer):
 
 
 async def _make_server() -> tuple[grpc.aio.Server, int, Container]:
-    container = Container(groups=[Dependencies], validate=True)
+    container = Container(groups=[Dependencies])
     container.open()  # caller-owned root lifecycle: gRPC gives the adapter no root-lifecycle hook
     server = grpc.aio.server(interceptors=[DIAioInterceptor(container)])
     greeter_pb2_grpc.add_GreeterServicer_to_server(AioServicer(), server)
@@ -152,7 +152,7 @@ async def test_aio_app_finalizer_runs_on_root_close() -> None:
 async def test_wrap_unary_aio_resets_context_var_when_close_raises() -> None:
     # Async twin of the sync wrapper-builder test: proves the reset still runs when
     # `await child.close_async()` raises (a REQUEST finalizer error).
-    root = Container(groups=[BoomDependencies], validate=True)
+    root = Container(groups=[BoomDependencies])
     root.add_providers(grpc_context_provider)
     root.open()
 
