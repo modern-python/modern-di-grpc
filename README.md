@@ -21,7 +21,7 @@
 
 Full guide: [gRPC integration docs](https://modern-di.modern-python.org/integrations/grpc/)
 
-Usage example: [examples/](./examples)
+Usage example: [examples/](https://github.com/modern-python/modern-di-grpc/tree/main/examples)
 
 ## Installation
 
@@ -101,7 +101,7 @@ For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)
 
 ## 📦 [PyPI](https://pypi.org/project/modern-di-grpc)
 
-## 📝 [License](LICENSE)
+## 📝 [License](https://github.com/modern-python/modern-di-grpc/blob/main/LICENSE)
 
 ## Part of `modern-python`
 
