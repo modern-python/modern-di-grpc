@@ -17,12 +17,7 @@ ships as a separate PyPI package.
 
 ## Architecture
 
-All implementation is `modern_di_grpc/main.py`, short enough to read whole. Read it. What reading it
-will not tell you is why two of its shapes are load-bearing rather than incidental: the
-response-streaming wrappers are generators because the contract is generator-only
-([ADR-0003](docs/adr/0003-streaming-servicer-methods-must-be-generators.md)), and
-`grpc_context_provider` is the *only* connection provider on purpose
-([ADR-0002](docs/adr/0002-protobuf-request-message-not-a-provider.md)).
+All implementation is `modern_di_grpc/main.py`, short enough to read whole. Read it.
 
 ## Workflow
 
