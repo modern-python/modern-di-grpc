@@ -1,5 +1,6 @@
 import typing
 from collections.abc import Iterator
+from concurrent import futures
 
 import grpc
 import pytest
@@ -122,6 +123,20 @@ def test_unknown_method_returns_unimplemented(sync_channel: grpc.Channel) -> Non
     # grpc.RpcError is an empty marker class; the actual raised instance is also a grpc.Call
     # (code(), details(), ...), which ty can't see from the RpcError annotation alone.
     assert excinfo.value.code() == grpc.StatusCode.UNIMPLEMENTED  # ty: ignore[unresolved-attribute]
+
+
+def test_inject_without_interceptor_reports_missing_interceptor() -> None:
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    greeter_pb2_grpc.add_GreeterServicer_to_server(Servicer(), server)
+    port = server.add_insecure_port("127.0.0.1:0")
+    server.start()
+    try:
+        with grpc.insecure_channel(f"127.0.0.1:{port}") as channel, pytest.raises(grpc.RpcError) as excinfo:
+            greeter_pb2_grpc.GreeterStub(channel).SayHello(HelloRequest(name="a"))
+    finally:
+        server.stop(0)
+    assert excinfo.value.code() == grpc.StatusCode.UNKNOWN  # ty: ignore[unresolved-attribute]
+    assert "DIInterceptor" in excinfo.value.details()  # ty: ignore[unresolved-attribute]
 
 
 async def test_app_finalizer_runs_on_root_close() -> None:

@@ -40,8 +40,22 @@ def test_fetch_di_container_returns_child() -> None:
 
 def test_fetch_di_container_raises_outside_rpc() -> None:
     def _call() -> None:
-        with pytest.raises(LookupError):
+        with pytest.raises(RuntimeError, match="DIInterceptor"):
             fetch_di_container()
+
+    contextvars.copy_context().run(_call)  # guaranteed-unset ContextVar
+
+
+def test_inject_raises_without_interceptor() -> None:
+    @inject
+    def method(
+        _self: object, _request: str, _context: object, _app_res: typing.Annotated[AppResource, FromDI(AppResource)]
+    ) -> None:
+        pass  # pragma: no cover
+
+    def _call() -> None:
+        with pytest.raises(RuntimeError, match="DIInterceptor"):
+            method(object(), "req", object())
 
     contextvars.copy_context().run(_call)  # guaranteed-unset ContextVar
 

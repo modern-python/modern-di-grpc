@@ -23,9 +23,21 @@ def _build_child(container: Container, context: ServicerContext) -> Container:
     return child
 
 
+def _current_container() -> Container:
+    try:
+        return _request_container.get()
+    except LookupError:
+        msg = (
+            "No modern-di container found for this RPC. "
+            "Add DIInterceptor (sync server) or DIAioInterceptor (aio server) to the server's interceptors "
+            "so RPCs pass through it before using @inject or fetch_di_container."
+        )
+        raise RuntimeError(msg) from None
+
+
 def fetch_di_container() -> Container:
-    """Return the current RPC's child container. Raises ``LookupError`` outside an intercepted RPC."""
-    return _request_container.get()
+    """Return the current RPC's child container. Raises ``RuntimeError`` outside an intercepted RPC."""
+    return _current_container()
 
 
 def _ensure_context_provider(container: Container) -> None:
@@ -38,8 +50,7 @@ FromDI = integrations.from_di
 
 
 def _resolve(di_params: dict[str, integrations.Marker[typing.Any]]) -> dict[str, typing.Any]:
-    container = _request_container.get()
-    return integrations.resolve_markers(container, di_params)
+    return integrations.resolve_markers(_current_container(), di_params)
 
 
 def inject(func: typing.Callable[..., typing.Any]) -> typing.Callable[..., typing.Any]:
