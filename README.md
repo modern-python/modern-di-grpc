@@ -96,7 +96,7 @@ For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)
 | `DIAioInterceptor(container)` | `grpc.aio.ServerInterceptor` for the async server. Same, with `close_async` |
 | `FromDI(dependency)` | Inert marker for `Annotated[T, FromDI(...)]` in servicer-method signatures; accepts a provider instance or a type |
 | `inject(method)` | Decorates a servicer method to resolve its `FromDI` parameters from the current RPC's child container; adapts to sync / async / async-generator methods |
-| `fetch_di_container()` | Returns the current RPC's child container (raises `LookupError` outside an RPC) |
+| `fetch_di_container()` | Returns the current RPC's child container (raises `RuntimeError` outside an RPC) |
 | `grpc_context_provider` | `ContextProvider` exposing `grpc.ServicerContext` at `Scope.REQUEST`; auto-registered by the interceptor |
 
 ## 📦 [PyPI](https://pypi.org/project/modern-di-grpc)
