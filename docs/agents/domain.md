@@ -17,8 +17,8 @@ Single-context repo:
 /
 ├── CONTEXT.md
 ├── docs/adr/
-│   ├── 0001-aio-coverage-flake-fixed-in-the-test.md
-│   └── 0002-protobuf-request-message-not-a-provider.md
+│   ├── 0001-protobuf-request-message-not-a-provider.md
+│   └── 0002-streaming-servicer-methods-must-be-generators.md
 └── modern_di_grpc/
 ```
 
@@ -32,4 +32,5 @@ If the concept you need isn't in the glossary yet, that's a signal: either you'r
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0001 (aio coverage flake fixed in the test), but worth reopening because…_
+> _Contradicts ADR-0001 (the protobuf request message is not exposed as a provider), but worth
+> reopening because…_
