@@ -21,7 +21,7 @@ lint-ci:
 # module; rewrite it to a package-relative import so the stubs import cleanly
 # as tests.protos.greeter_pb2_grpc.
 proto:
-    uv run python -m grpc_tools.protoc -Itests/protos --python_out=tests/protos --grpc_python_out=tests/protos tests/protos/greeter.proto
+    uv run --with grpcio-tools python -m grpc_tools.protoc -Itests/protos --python_out=tests/protos --grpc_python_out=tests/protos tests/protos/greeter.proto
     sed -i.bak 's/^import greeter_pb2 as greeter__pb2$/from tests.protos import greeter_pb2 as greeter__pb2/' tests/protos/greeter_pb2_grpc.py
     rm -f tests/protos/greeter_pb2_grpc.py.bak
 
