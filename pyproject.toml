@@ -17,7 +17,13 @@ classifiers = [
     "Typing :: Typed",
     "Topic :: Software Development :: Libraries",
 ]
-dependencies = ["grpcio>=1.48,<2", "modern-di>=3,<4"]
+dependencies = [
+    # grpcio ships no cp314 wheel before 1.75.1, so a resolver picks an sdist that cannot build
+    # rather than reporting a conflict.
+    "grpcio>=1.48,<2; python_version < '3.14'",
+    "grpcio>=1.75.1,<2; python_version >= '3.14'",
+    "modern-di>=3.1,<4",
+]
 version = "0"
 
 [project.urls]
