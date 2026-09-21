@@ -18,10 +18,8 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    # grpcio ships no cp314 wheel before 1.75.1, so a resolver picks an sdist that cannot build
-    # rather than reporting a conflict.
-    "grpcio>=1.48,<2; python_version < '3.14'",
-    "grpcio>=1.75.1,<2; python_version >= '3.14'",
+    # The committed test stubs under tests/protos refuse to import below 1.82.1.
+    "grpcio>=1.82.1,<2",
     "modern-di>=3.1,<4",
 ]
 version = "0"
@@ -34,7 +32,9 @@ Issues = "https://github.com/modern-python/modern-di-grpc/issues"
 Changelog = "https://github.com/modern-python/modern-di-grpc/releases"
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "pytest-asyncio", "grpcio-tools", "protobuf"]
+# Floored so `uv sync --resolution lowest-direct` resolves a usable harness, not each name's first release.
+# grpcio-tools is not here: it pins grpcio to its own version, which would hide the floors above.
+dev = ["pytest>=8", "pytest-cov>=5", "pytest-asyncio>=0.24", "protobuf>=7.35"]
 lint = ["ty", "ruff", "eof-fixer", "typing-extensions"]
 
 [build-system]
