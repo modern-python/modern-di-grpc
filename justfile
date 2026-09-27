@@ -16,6 +16,17 @@ lint-ci:
     uv run ruff check --no-fix
     uv run ty check
 
+adr_check_source := "https://raw.githubusercontent.com/modern-python/.github/main/tests/test_adr_citations.py"
+
+# Tracks main on purpose: the shared check is unpinned.
+adr-check:
+    #!/usr/bin/env sh
+    set -eu
+    dir="$(mktemp -d .adr-check.XXXXXX)"
+    trap 'rm -rf "$dir"' EXIT
+    curl -fsSL "{{ adr_check_source }}" -o "$dir/test_adr_citations.py"
+    uv run --no-sync pytest --rootdir=. --noconftest -o addopts= "$dir/test_adr_citations.py"
+
 # Regenerate gRPC test stubs from the .proto (committed under tests/protos/).
 # protoc emits a bare `import greeter_pb2`, which only resolves as a top-level
 # module; rewrite it to a package-relative import so the stubs import cleanly
