@@ -51,7 +51,7 @@ def build_server(port: str = "127.0.0.1:0") -> tuple[grpc.Server, int, Container
     return server, bound_port, container
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover - script entry point; tests call build_server() directly
     _server, _port, _container = build_server("[::]:50051")
     print(f"Serving on port {_port}; Ctrl+C to stop")  # noqa: T201
     try:

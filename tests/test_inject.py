@@ -51,7 +51,7 @@ def test_inject_raises_without_interceptor() -> None:
     def method(
         _self: object, _request: str, _context: object, _app_res: typing.Annotated[AppResource, FromDI(AppResource)]
     ) -> None:
-        pass  # pragma: no cover
+        pass  # pragma: no cover - never runs; inject raises before the call without DIInterceptor
 
     def _call() -> None:
         with pytest.raises(RuntimeError, match="DIInterceptor"):
