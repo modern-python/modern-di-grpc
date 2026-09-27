@@ -17,7 +17,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 
-[Modern-DI](https://github.com/modern-python/modern-di) integration for [gRPC](https://grpc.io) (`grpcio`).
+[modern-di](https://github.com/modern-python/modern-di) integration for [gRPC](https://grpc.io) (`grpcio`).
 
 Full guide: [gRPC integration docs](https://modern-di.modern-python.org/integrations/grpc/)
 
