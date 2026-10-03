@@ -31,7 +31,7 @@ uv add modern-di-grpc      # or: pip install modern-di-grpc
 
 ## Usage
 
-gRPC has no dependency-injection system of its own, so `modern-di-grpc` pairs an `@inject` decorator with inert `FromDI` markers. A `DIInterceptor` (sync) or `DIAioInterceptor` (async) opens one `Scope.REQUEST` child container per RPC and resolves the `FromDI`-marked parameters of `@inject`-decorated servicer methods. Constructing the interceptor registers the `ServicerContext` provider on the container automatically — there is no separate setup call.
+gRPC has no dependency-injection system of its own, so `modern-di-grpc` pairs an `@inject` decorator with inert `FromDI` markers. A `DIInterceptor` (sync) or `DIAioInterceptor` (async) opens one `Scope.REQUEST` child container per RPC and resolves the `FromDI`-marked parameters of `@inject`-decorated servicer methods. Constructing the interceptor registers the `ServicerContext` provider on the container automatically; there is no separate setup call.
 
 ```python
 import typing
@@ -74,11 +74,11 @@ class GreeterService(greeter_pb2_grpc.GreeterServicer):
 
 
 container = Container(groups=[AppGroup])
-container.validate()  # optional fail-fast; modern-di 3.1 validates nowhere implicitly
 server = grpc.server(
     futures.ThreadPoolExecutor(max_workers=10),
     interceptors=[DIInterceptor(container)],
 )
+container.validate()  # optional fail-fast; must come after DIInterceptor registers its providers
 greeter_pb2_grpc.add_GreeterServicer_to_server(GreeterService(), server)
 server.add_insecure_port("[::]:50051")
 server.start()
@@ -86,7 +86,7 @@ server.wait_for_termination()
 container.close_sync()
 ```
 
-For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. gRPC has no server startup/shutdown hook, so the root container's shutdown is yours to own. As of modern-di 3.1 a container is **open from construction**, so no `.open()` call is required before constructing the interceptor (`DIInterceptor`/`DIAioInterceptor` never open the root themselves, and no longer need to). Validation is explicit in 3.1: call `.validate()` if you want a broken graph to fail at start-up rather than at the first RPC that touches it. Call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops — that half is still yours, since gRPC gives the adapter no shutdown hook.
+For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. A container is open from construction, so there is no `.open()` call before constructing the interceptor, and neither interceptor opens the root itself. Validation is explicit: call `.validate()` after constructing the interceptor if you want a broken graph to fail at start-up rather than at the first RPC that touches it. gRPC has no server startup or shutdown hook, so closing the root container is up to you: call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops.
 
 ## API
 
@@ -105,7 +105,7 @@ For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)
 
 ## Part of `modern-python`
 
-Built on [`modern-di`](https://github.com/modern-python/modern-di), a dependency-injection framework with IoC container and scopes.
+Built on [`modern-di`](https://github.com/modern-python/modern-di), a dependency-injection framework with an IoC container and scopes.
 
 Browse the full list of templates and libraries in
-[`modern-python`](https://github.com/modern-python) — see the org profile for the categorized index.
+[`modern-python`](https://github.com/modern-python); the org profile has the categorized index.
