@@ -42,9 +42,9 @@ class GreeterService(greeter_pb2_grpc.GreeterServicer):
 def build_server(port: str = "127.0.0.1:0") -> tuple[grpc.Server, int, Container]:
     """Wire the container, register the interceptor, and start listening; return the bound port."""
     container = Container(groups=[AppGroup])
-    container.validate()  # optional fail-fast; gRPC gives the adapter no root-lifecycle hook,
-    # so the close at the end of this function is the caller-owned half
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=[DIInterceptor(container)])
+    interceptor = DIInterceptor(container)
+    container.validate()  # optional fail-fast; must come after DIInterceptor registers its providers
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=[interceptor])
     greeter_pb2_grpc.add_GreeterServicer_to_server(GreeterService(), server)
     bound_port = server.add_insecure_port(port)
     server.start()
