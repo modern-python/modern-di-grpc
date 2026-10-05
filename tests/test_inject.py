@@ -188,7 +188,7 @@ def test_wrap_unary_sync_resets_context_var_when_close_raises() -> None:
 def test_di_interceptor_registers_context_provider_idempotently() -> None:
     container = Container(groups=[Dependencies])
     DIInterceptor(container)
-    assert container.providers_registry.find_provider(ServicerContext) is not None
+    assert container.find_provider(ServicerContext) is not None
     # Second construction on the same container must hit the idempotent-skip branch, not
     # try (and fail) to register grpc_context_provider a second time.
     DIInterceptor(container)

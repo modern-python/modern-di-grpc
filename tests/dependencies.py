@@ -24,8 +24,7 @@ class ContextReader:
 
 
 def _make_context_reader(context: ServicerContext | None = None) -> ContextReader:
-    # `context` is wired from grpc_context_provider (ContextProvider(ServicerContext, REQUEST));
-    # the `| None = None` default lets it construct at validate time when no context is set.
+    # The default applies only when no DIInterceptor has registered grpc_context_provider on the container.
     return ContextReader(peer=context.peer() if context is not None else "no-context")
 
 
