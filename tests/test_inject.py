@@ -1,3 +1,4 @@
+import collections.abc
 import contextlib
 import contextvars
 import typing
@@ -20,7 +21,7 @@ from tests.dependencies import (
 
 
 @contextlib.contextmanager
-def _rpc_child() -> typing.Iterator[Container]:
+def _rpc_child() -> collections.abc.Generator[Container]:
     root = Container(groups=[Dependencies])
     root.open()  # caller-owned root; never closed here (gRPC has no root-lifecycle hook)
     child = root.build_child_container(scope=Scope.REQUEST)
