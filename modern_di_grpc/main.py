@@ -42,7 +42,7 @@ def fetch_di_container() -> Container:
 
 def _ensure_context_provider(container: Container) -> None:
     # Register grpc_context_provider once (idempotent) so ServicerContext injects out of the box.
-    if container.providers_registry.find_provider(ServicerContext) is None:
+    if container.find_provider(ServicerContext) is None:
         container.add_providers(grpc_context_provider)
 
 

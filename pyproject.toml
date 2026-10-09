@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
     # The committed test stubs under tests/protos refuse to import below 1.82.1.
     "grpcio>=1.82.1,<2",
-    "modern-di>=3.1,<4",
+    "modern-di>=4,<5",
 ]
 version = "0"
 
