@@ -7,6 +7,7 @@ import unittest.mock
 import pytest
 from grpc import ServicerContext
 from modern_di import Container, Scope
+from modern_di.exceptions import FinalizerError
 
 from modern_di_grpc import DIAioInterceptor, DIInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
 from modern_di_grpc.main import _build_child, _request_container, _wrap_unary_sync
@@ -175,8 +176,11 @@ def test_wrap_unary_sync_resets_context_var_when_close_raises() -> None:
     wrapped = _wrap_unary_sync(behavior, root)
     context = typing.cast(ServicerContext, unittest.mock.MagicMock(spec=ServicerContext))
 
-    with pytest.raises(RuntimeError, match="boom"):
+    with pytest.raises(FinalizerError) as exc_info:
         wrapped(object(), context)
+    [error] = exc_info.value.exceptions
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "boom"
 
     # Reset ran despite child.close_sync() raising: the ContextVar is unset again, not just
     # left pointing at a stale/closed child container.

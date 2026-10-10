@@ -6,6 +6,7 @@ import grpc
 import grpc.aio
 import pytest
 from modern_di import Container
+from modern_di.exceptions import FinalizerError
 
 from modern_di_grpc import DIAioInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
 from modern_di_grpc.main import _request_container, _wrap_unary_aio
@@ -160,8 +161,11 @@ async def test_wrap_unary_aio_resets_context_var_when_close_raises() -> None:
     wrapped = _wrap_unary_aio(behavior, root)
     context = typing.cast(grpc.aio.ServicerContext, unittest.mock.MagicMock(spec=grpc.ServicerContext))
 
-    with pytest.raises(RuntimeError, match="boom"):
+    with pytest.raises(FinalizerError) as exc_info:
         await wrapped(object(), context)
+    [error] = exc_info.value.exceptions
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "boom"
 
     with pytest.raises(LookupError):
         _request_container.get()
