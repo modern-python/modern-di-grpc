@@ -9,4 +9,4 @@ themselves generators that keep the per-RPC child and its `ContextVar` alive for
 stream runs, while a `context.write` behavior is a plain coroutine that wants the response-unary
 wrapper. `inspect` cannot tell the two apart, and guessing unary for a generator closes the child
 before gRPC pulls a single item, tearing down every resolved dependency mid-stream. Supporting the
-other form takes an explicit opt-in, never a runtime guess.
+other form therefore needs an explicit opt-in.
