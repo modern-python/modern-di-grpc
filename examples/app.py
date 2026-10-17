@@ -57,4 +57,5 @@ if __name__ == "__main__":  # pragma: no cover - script entry point; tests call 
     try:
         _server.wait_for_termination()
     finally:
+        _server.stop(grace=5).wait()  # let in-flight RPCs finish before APP finalizers run
         _container.close_sync()
