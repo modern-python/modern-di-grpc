@@ -1,5 +1,6 @@
 """modern-di integration for gRPC (grpcio)."""
 
+import contextlib
 import contextvars
 import functools
 import inspect
@@ -197,7 +198,9 @@ def _wrap_stream_aio(
             try:
                 await child.close_async()
             finally:
-                _request_container.reset(token)
+                # A cancelled stream is closed by the GC in a new task, whose context never held the token.
+                with contextlib.suppress(ValueError):
+                    _request_container.reset(token)
 
     return wrapper
 

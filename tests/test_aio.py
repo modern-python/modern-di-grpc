@@ -1,3 +1,4 @@
+import asyncio
 import typing
 import unittest.mock
 from collections.abc import AsyncIterator, Iterator
@@ -10,7 +11,7 @@ from modern_di import Container
 from modern_di.exceptions import FinalizerError
 
 from modern_di_grpc import DIAioInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
-from modern_di_grpc.main import _request_container, _wrap_unary_aio
+from modern_di_grpc.main import _request_container, _wrap_stream_aio, _wrap_unary_aio
 from tests.dependencies import BoomDependencies, Dependencies, RequestResource, app_teardowns, request_teardowns
 from tests.protos import greeter_pb2, greeter_pb2_grpc
 
@@ -271,4 +272,24 @@ async def test_wrap_unary_aio_resets_context_var_when_close_raises() -> None:
     with pytest.raises(LookupError):
         _request_container.get()
 
+    await root.close_async()
+
+
+async def test_wrap_stream_aio_closes_quietly_when_finalized_in_another_task() -> None:
+    request_teardowns.clear()
+    root = Container(groups=[Dependencies])
+    root.add_providers(grpc_context_provider)
+    root.open()
+
+    async def behavior(_request: object, _context: grpc.aio.ServicerContext) -> AsyncIterator[str]:
+        fetch_di_container().resolve_provider(Dependencies.request_factory)
+        yield "first"
+        yield "second"  # pragma: no cover - the stream is closed after the first item
+
+    stream = _wrap_stream_aio(behavior, root)(object(), unittest.mock.MagicMock(spec=grpc.ServicerContext))
+    assert await asyncio.create_task(anext(stream)) == "first"
+
+    await asyncio.create_task(stream.aclose())
+
+    assert request_teardowns == ["request-closed"]
     await root.close_async()
