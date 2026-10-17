@@ -102,9 +102,10 @@ For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)
 | `fetch_di_container()` | Returns the current RPC's child container (raises `RuntimeError` outside an RPC) |
 | `grpc_context_provider` | `ContextProvider` exposing `grpc.ServicerContext` at `Scope.REQUEST`; auto-registered by the interceptor |
 
-## 📦 [PyPI](https://pypi.org/project/modern-di-grpc)
+## Links
 
-## 📝 [License](https://github.com/modern-python/modern-di-grpc/blob/main/LICENSE)
+- [PyPI](https://pypi.org/project/modern-di-grpc)
+- [License](https://github.com/modern-python/modern-di-grpc/blob/main/LICENSE)
 
 ## Part of `modern-python`
 
