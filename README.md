@@ -82,11 +82,14 @@ container.validate()  # optional fail-fast; must come after DIInterceptor regist
 greeter_pb2_grpc.add_GreeterServicer_to_server(GreeterService(), server)
 server.add_insecure_port("[::]:50051")
 server.start()
-server.wait_for_termination()
-container.close_sync()
+try:
+    server.wait_for_termination()
+finally:
+    server.stop(grace=5).wait()  # let in-flight RPCs finish before APP finalizers run
+    container.close_sync()
 ```
 
-For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. A container is open from construction, so there is no `.open()` call before constructing the interceptor, and neither interceptor opens the root itself. Validation is explicit: call `.validate()` after constructing the interceptor if you want a broken graph to fail at start-up rather than at the first RPC that touches it. gRPC has no server startup or shutdown hook, so closing the root container is up to you: call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops.
+For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)` and write `async def` servicer methods; `@inject` adapts to sync, async, and async-generator (server-streaming) methods across all four RPC types. A container is open from construction, so there is no `.open()` call before constructing the interceptor, and neither interceptor opens the root itself. Validation is explicit: call `.validate()` after constructing the interceptor if you want a broken graph to fail at start-up rather than at the first RPC that touches it. gRPC has no server startup or shutdown hook, so closing the root container is up to you: call `close_sync()` (or `await close_async()` on `grpc.aio`) after the server stops, in a `finally` as above so Ctrl+C still runs the finalizers.
 
 ## API
 
