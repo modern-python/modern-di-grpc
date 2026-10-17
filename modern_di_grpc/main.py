@@ -141,7 +141,9 @@ def _wrap_stream_sync(
             try:
                 child.close_sync()
             finally:
-                _request_container.reset(token)
+                # A stream closed by the GC in another thread or context never held the token.
+                with contextlib.suppress(ValueError):
+                    _request_container.reset(token)
 
     return wrapper
 

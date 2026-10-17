@@ -1,4 +1,6 @@
+import contextvars
 import typing
+import unittest.mock
 from collections.abc import Iterator
 from concurrent import futures
 
@@ -6,7 +8,8 @@ import grpc
 import pytest
 from modern_di import Container
 
-from modern_di_grpc import DIInterceptor, FromDI, fetch_di_container, inject
+from modern_di_grpc import DIInterceptor, FromDI, fetch_di_container, grpc_context_provider, inject
+from modern_di_grpc.main import _wrap_stream_sync
 from tests.conftest import run_sync_server
 from tests.dependencies import (
     AppResource,
@@ -149,3 +152,21 @@ async def test_app_finalizer_runs_on_root_close() -> None:
     server.stop(0)
     await container.close_async()  # user-owned root lifecycle; AppResource's finalizer is async (see dependencies.py)
     assert app_teardowns == ["app-closed"]
+
+
+def test_wrap_stream_sync_closes_quietly_when_finalized_in_another_context() -> None:
+    request_teardowns.clear()
+    root = Container(groups=[Dependencies])
+    root.add_providers(grpc_context_provider)
+
+    def behavior(_request: object, _context: grpc.ServicerContext) -> Iterator[str]:
+        fetch_di_container().resolve_provider(Dependencies.request_factory)
+        yield "first"
+        yield "second"  # pragma: no cover - the stream is closed after the first item
+
+    stream = _wrap_stream_sync(behavior, root)(object(), unittest.mock.MagicMock(spec=grpc.ServicerContext))
+    assert contextvars.copy_context().run(next, stream) == "first"
+
+    contextvars.copy_context().run(stream.close)
+
+    assert request_teardowns == ["request-closed"]
