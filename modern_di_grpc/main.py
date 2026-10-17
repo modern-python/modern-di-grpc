@@ -202,6 +202,10 @@ def _wrap_stream_aio(
     return wrapper
 
 
+def _is_async_behavior(behavior: typing.Callable[..., typing.Any]) -> bool:
+    return inspect.iscoroutinefunction(behavior) or inspect.isasyncgenfunction(behavior)
+
+
 class DIAioInterceptor(grpc.aio.ServerInterceptor):
     """Server interceptor that opens a ``Scope.REQUEST`` child container per RPC (async server)."""
 
@@ -217,8 +221,14 @@ class DIAioInterceptor(grpc.aio.ServerInterceptor):
         handler = await continuation(handler_call_details)
         if handler is None:
             return handler
-        return _rewrap(
-            handler,
-            lambda behavior: _wrap_unary_aio(behavior, self._container),
-            lambda behavior: _wrap_stream_aio(behavior, self._container),
-        )
+        return _rewrap(handler, self._wrap_unary, self._wrap_stream)
+
+    def _wrap_unary(self, behavior: typing.Callable[..., typing.Any]) -> typing.Callable[..., typing.Any]:
+        if _is_async_behavior(behavior):
+            return _wrap_unary_aio(behavior, self._container)
+        return _wrap_unary_sync(behavior, self._container)
+
+    def _wrap_stream(self, behavior: typing.Callable[..., typing.Any]) -> typing.Callable[..., typing.Any]:
+        if _is_async_behavior(behavior):
+            return _wrap_stream_aio(behavior, self._container)
+        return _wrap_stream_sync(behavior, self._container)

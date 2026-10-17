@@ -93,7 +93,7 @@ For an async server, pass `DIAioInterceptor(container)` to `grpc.aio.server(...)
 | Symbol | Description |
 |---|---|
 | `DIInterceptor(container)` | `grpc.ServerInterceptor` for the sync thread-pool server. Opens a `Scope.REQUEST` child per RPC (`close_sync`); auto-registers `grpc_context_provider` |
-| `DIAioInterceptor(container)` | `grpc.aio.ServerInterceptor` for the async server. Same, with `close_async` |
+| `DIAioInterceptor(container)` | `grpc.aio.ServerInterceptor` for the async server. Same, with `close_async`; sync methods run on the server's `migration_thread_pool` and close their child with `close_sync` |
 | `FromDI(dependency)` | Inert marker for `Annotated[T, FromDI(...)]` in servicer-method signatures; accepts a provider instance or a type |
 | `inject(method)` | Decorates a servicer method to resolve its `FromDI` parameters from the current RPC's child container; adapts to sync / async / async-generator methods |
 | `fetch_di_container()` | Returns the current RPC's child container (raises `RuntimeError` outside an RPC) |

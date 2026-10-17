@@ -1,6 +1,7 @@
 import typing
 import unittest.mock
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from concurrent import futures
 
 import grpc
 import grpc.aio
@@ -58,6 +59,48 @@ class AioServicer(greeter_pb2_grpc.GreeterServicer):
         req_res: typing.Annotated[RequestResource, FromDI(Dependencies.request_factory)],
     ) -> AsyncIterator[HelloReply]:
         async for r in request_iterator:
+            yield HelloReply(message=f"{r.name}:{isinstance(req_res, RequestResource)}")
+
+
+class SyncOnAioServicer(greeter_pb2_grpc.GreeterServicer):
+    @inject
+    def SayHello(  # noqa: N802
+        self,
+        request: HelloRequest,
+        _context: grpc.ServicerContext,
+        req_res: typing.Annotated[RequestResource, FromDI(Dependencies.request_factory)],
+    ) -> HelloReply:
+        return HelloReply(message=f"{request.name}:{isinstance(req_res, RequestResource)}")
+
+    @inject
+    def SayHelloServerStream(  # noqa: N802
+        self,
+        request: HelloRequest,
+        _context: grpc.ServicerContext,
+        req_res: typing.Annotated[RequestResource, FromDI(Dependencies.request_factory)],
+    ) -> Iterator[HelloReply]:
+        for i in range(2):
+            yield HelloReply(message=f"{request.name}:{i}:{isinstance(req_res, RequestResource)}")
+
+    def SayHelloClientStream(  # noqa: N802
+        self,
+        request_iterator: Iterator[HelloRequest],
+        context: grpc.ServicerContext,
+    ) -> HelloReply:
+        container = fetch_di_container()
+        req_res = container.resolve_provider(Dependencies.request_factory)
+        own_context = container.resolve(grpc.ServicerContext) is context
+        names = ",".join(r.name for r in request_iterator)
+        return HelloReply(message=f"{names}:{isinstance(req_res, RequestResource)}:{own_context}")
+
+    @inject
+    def SayHelloBidi(  # noqa: N802
+        self,
+        request_iterator: Iterator[HelloRequest],
+        _context: grpc.ServicerContext,
+        req_res: typing.Annotated[RequestResource, FromDI(Dependencies.request_factory)],
+    ) -> Iterator[HelloReply]:
+        for r in request_iterator:
             yield HelloReply(message=f"{r.name}:{isinstance(req_res, RequestResource)}")
 
 
@@ -123,6 +166,64 @@ async def test_aio_stream_stream() -> None:
     assert msgs == ["e:True", "f:True"]
     assert request_teardowns == ["request-closed"]
     await server.stop(0)
+
+
+@pytest.fixture
+async def sync_on_aio_port() -> AsyncIterator[int]:
+    request_teardowns.clear()
+    container = Container(groups=[Dependencies])
+    container.open()
+    with futures.ThreadPoolExecutor(max_workers=2) as pool:
+        server = grpc.aio.server(migration_thread_pool=pool, interceptors=[DIAioInterceptor(container)])
+        greeter_pb2_grpc.add_GreeterServicer_to_server(SyncOnAioServicer(), server)
+        port = server.add_insecure_port("127.0.0.1:0")
+        await server.start()
+        try:
+            yield port
+        finally:
+            await server.stop(0)
+
+
+async def test_aio_sync_unary_unary(sync_on_aio_port: int) -> None:
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{sync_on_aio_port}") as channel:
+        stub = greeter_pb2_grpc.GreeterStub(channel)
+        resp = await stub.SayHello(HelloRequest(name="a"), timeout=5)
+    assert resp.message == "a:True"
+    assert request_teardowns == ["request-closed"]
+
+
+async def test_aio_sync_unary_stream(sync_on_aio_port: int) -> None:
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{sync_on_aio_port}") as channel:
+        stub = greeter_pb2_grpc.GreeterStub(channel)
+        msgs = [m.message async for m in stub.SayHelloServerStream(HelloRequest(name="b"), timeout=5)]
+    assert msgs == ["b:0:True", "b:1:True"]
+    assert request_teardowns == ["request-closed"]
+
+
+async def test_aio_sync_stream_unary_without_inject(sync_on_aio_port: int) -> None:
+
+    async def gen() -> AsyncIterator[HelloRequest]:
+        yield HelloRequest(name="c")
+        yield HelloRequest(name="d")
+
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{sync_on_aio_port}") as channel:
+        stub = greeter_pb2_grpc.GreeterStub(channel)
+        resp = await stub.SayHelloClientStream(gen(), timeout=5)
+    assert resp.message == "c,d:True:True"
+    assert request_teardowns == ["request-closed"]
+
+
+async def test_aio_sync_stream_stream(sync_on_aio_port: int) -> None:
+
+    async def gen() -> AsyncIterator[HelloRequest]:
+        yield HelloRequest(name="e")
+        yield HelloRequest(name="f")
+
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{sync_on_aio_port}") as channel:
+        stub = greeter_pb2_grpc.GreeterStub(channel)
+        msgs = [m.message async for m in stub.SayHelloBidi(gen(), timeout=5)]
+    assert msgs == ["e:True", "f:True"]
+    assert request_teardowns == ["request-closed"]
 
 
 async def test_aio_unknown_method_returns_unimplemented() -> None:
