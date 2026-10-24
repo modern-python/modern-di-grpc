@@ -18,8 +18,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    # The committed test stubs under tests/protos refuse to import below 1.82.1.
-    "grpcio>=1.82.1,<2",
+    # The committed test stubs under tests/protos refuse to import below 1.82.1, and grpcio ships
+    # no cp315 wheel before 1.84.
+    "grpcio>=1.82.1,<2; python_version < '3.15'",
+    "grpcio>=1.84,<2; python_version >= '3.15'",
     "modern-di>=4.2,<5",
 ]
 version = "0"
