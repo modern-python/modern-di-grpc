@@ -32,5 +32,5 @@ def test_public_surface_is_exactly_the_six_documented_symbols() -> None:
 
 
 def test_proto_stubs_importable() -> None:
-    assert greeter_pb2.HelloRequest is not None  # ty: ignore[unresolved-attribute]
+    assert greeter_pb2.HelloRequest is not None  # ty: ignore[missing-attribute]
     assert greeter_pb2_grpc.GreeterServicer is not None
