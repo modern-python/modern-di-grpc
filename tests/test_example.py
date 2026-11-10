@@ -4,7 +4,7 @@ from examples.app import build_server
 from tests.protos import greeter_pb2, greeter_pb2_grpc
 
 
-HelloRequest = greeter_pb2.HelloRequest  # ty: ignore[unresolved-attribute]
+HelloRequest = greeter_pb2.HelloRequest  # ty: ignore[missing-attribute]
 
 
 def test_example_resolves_and_greets() -> None:

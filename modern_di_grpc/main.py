@@ -99,15 +99,15 @@ def _rewrap(
 ) -> grpc.RpcMethodHandler:
     # grpc.RpcMethodHandler is an abc.ABC documenting these attributes only in its docstring (no annotated
     # fields), so ty cannot resolve them on the concrete instances the runtime actually hands back.
-    deserializer = handler.request_deserializer  # ty: ignore[unresolved-attribute]
-    serializer = handler.response_serializer  # ty: ignore[unresolved-attribute]
-    if unary_unary := handler.unary_unary:  # ty: ignore[unresolved-attribute]
+    deserializer = handler.request_deserializer  # ty: ignore[missing-attribute]
+    serializer = handler.response_serializer  # ty: ignore[missing-attribute]
+    if unary_unary := handler.unary_unary:  # ty: ignore[missing-attribute]
         return grpc.unary_unary_rpc_method_handler(unary_builder(unary_unary), deserializer, serializer)
-    if unary_stream := handler.unary_stream:  # ty: ignore[unresolved-attribute]
+    if unary_stream := handler.unary_stream:  # ty: ignore[missing-attribute]
         return grpc.unary_stream_rpc_method_handler(stream_builder(unary_stream), deserializer, serializer)
-    if stream_unary := handler.stream_unary:  # ty: ignore[unresolved-attribute]
+    if stream_unary := handler.stream_unary:  # ty: ignore[missing-attribute]
         return grpc.stream_unary_rpc_method_handler(unary_builder(stream_unary), deserializer, serializer)
-    if stream_stream := handler.stream_stream:  # ty: ignore[unresolved-attribute]
+    if stream_stream := handler.stream_stream:  # ty: ignore[missing-attribute]
         return grpc.stream_stream_rpc_method_handler(stream_builder(stream_stream), deserializer, serializer)
     return handler  # pragma: no cover  (every RpcMethodHandler sets exactly one behavior)
 

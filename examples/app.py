@@ -32,11 +32,11 @@ class GreeterService(greeter_pb2_grpc.GreeterServicer):
     @inject
     def SayHello(  # noqa: N802
         self,
-        request: greeter_pb2.HelloRequest,  # ty: ignore[unresolved-attribute]
+        request: greeter_pb2.HelloRequest,  # ty: ignore[missing-attribute]
         _context: grpc.ServicerContext,
         greeter: typing.Annotated[Greeter, FromDI(Greeter)],
-    ) -> greeter_pb2.HelloReply:  # ty: ignore[unresolved-attribute]
-        return greeter_pb2.HelloReply(message=greeter.greet(request.name))  # ty: ignore[unresolved-attribute]
+    ) -> greeter_pb2.HelloReply:  # ty: ignore[missing-attribute]
+        return greeter_pb2.HelloReply(message=greeter.greet(request.name))  # ty: ignore[missing-attribute]
 
 
 def build_server(port: str = "127.0.0.1:0") -> tuple[grpc.Server, int, Container]:
